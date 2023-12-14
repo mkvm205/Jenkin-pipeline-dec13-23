@@ -1,0 +1,61 @@
+pipeline {
+    agent any
+    
+    tools {
+        maven 'maven-3'
+    }
+
+    environment {
+        DOCKER_TAG = get_Version()
+    }
+
+    stages {
+        stage('SCM') {
+            steps {
+                git  'https://github.com/mkvm205/dockeransiblejenkins'
+            }
+        }
+
+        stage('mvn build') {
+            steps {
+                sh "mvn clean package" 
+            }
+        }
+
+        stage('Docker Build') {
+            steps {
+                sh "docker build . -t mkvm2050/murali1:${DOCKER_TAG}"
+            }
+        }
+
+        stage('Docker HUB Push') {
+            steps {
+                script {
+                    withCredentials([string(credentialsId: 'Docker_hub', variable: 'dockerHubPWD')]) {
+                        try {
+                            sh "docker login -u mkvm2050 -p ${dockerHubPWD}"
+                            sh "docker push mkvm2050/murali1:${DOCKER_TAG}"
+                        } catch (Exception e) {
+                            echo "Error: ${e.message}"
+                        } finally {
+                            sh "docker logout"
+                        }
+                    }
+                }
+            }
+        }
+
+/*        stage('Ansible Docker Deploy') {
+            steps {
+                ansiblePlaybook credentialsId: 'dev-server', disableHostKeyChecking: true, 
+                                extras: "-e DOCKER_TAG=${DOCKER_TAG}", installation: 'ansible', 
+                                inventory: 'dev.inv', playbook: 'deploy-docker.yml'
+            }
+        } */
+    }
+}
+
+def get_Version() {
+    def commitHash = sh returnStdout: true, script: 'git rev-parse --short HEAD'
+    return commitHash.trim()
+}

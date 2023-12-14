@@ -1,0 +1,48 @@
+pipeline{
+    agent any
+    tools {
+            maven 'maven-3'
+        }
+    environment {
+        DOCKER_TAG = get_Version()
+    }
+
+    
+    stages{
+        stage('SCM') {
+            steps{
+                git 'https://github.com/mkvm205/dockeransiblejenkins'
+            }
+        }
+
+        stage('mvn build') {
+            steps{
+                sh "mvn clean package" 
+            }
+        }
+
+        stage('Docker Build'){
+                        steps{
+                sh  "docker build . -t mkvm2050/murali1:${DOCKER_TAG}"
+            }
+
+        }
+
+        stage('Docker HUB Push'){
+                        steps{
+                            withCredentials([string(credentialsId: 'Docker_hub', variable: 'dockerHubPWD')]) {
+                                sh "docker login -u mkvm2050 -p ${dockerHubPWD}"
+                            }
+                            sh  "docker push mkvm2050/murali1:${DOCKER_TAG}"                        
+                
+            }
+         }
+        
+    }
+}
+
+
+def get_Version() {
+    def commitHash = sh returnStdout: true, script: 'git rev-parse --short HEAD'
+    return  commitHash
+}
